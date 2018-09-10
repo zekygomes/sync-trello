@@ -23,20 +23,25 @@ class APIService
     /**
      * @return string
      */
-    public static function execute(): array
+    public static function execute($progress): array
     {
+
+        $progress->progressAdvance();
+
         $service = new APIService();
-
+        $progress->progressAdvance();
         $boardsId = $service->getAllBoardsId();
+        $progress->progressAdvance();
         $privateBoard = $service->isBoardCreated($boardsId);
-
+        $progress->progressAdvance();
         if($privateBoard == 0)
             $privateBoard = $service->createBoard();
 
-
+        $progress->progressAdvance();
         $membersId = $service->getAllMembersId($boardsId);
-        $data = $service->getAllMembersCards($membersId, $boardsId, $privateBoard);
-
+        $progress->progressAdvance();
+        $data = $service->setAllMembersCards($membersId, $boardsId, $privateBoard);
+        $progress->progressAdvance();
 
         return ['status'=>'ok'];
     }
@@ -128,7 +133,7 @@ class APIService
         return $data;
     }
 
-    public function getAllMembersCards($membersId, $boardsId, $privateBoardId): array
+    public function setAllMembersCards($membersId, $boardsId, $privateBoardId): array
     {
         $method = "GET";
         $data = [];
@@ -140,15 +145,17 @@ class APIService
 
             if(!empty($response))
             foreach ($response as $item){
-                $dados = [
-                    "name" => $this->getBoardName($boardsId, $item->idBoard)." - ".$item->name,
-                    "desc" => $item->desc,
-                    "dueComplete" => $item->dueComplete,
-                    "idMembers" => $item->idMembers,
-                    "idList" => 0
-                ];
-                $data[] = $dados;
-                $this->createCard($privateListId, $dados);
+                if($item->idBoard != $privateBoardId){
+                    $dados = [
+                        "name" => $this->getBoardName($boardsId, $item->idBoard)." - ".$item->name,
+                        "desc" => $item->desc,
+                        "dueComplete" => $item->dueComplete,
+                        "idMembers" => $item->idMembers,
+                        "idList" => 0
+                    ];
+                    $data[] = $dados;
+                    $this->createCard($privateListId, $dados);
+                }
             }
         }
 
@@ -176,7 +183,9 @@ class APIService
     {
         foreach ($boards as $item){
             if($item["name"] == "Private"){
-                return $item["id"];
+                $privateBoardId = $item["id"];
+
+                return $privateBoardId;
             }
         }
         return 0;

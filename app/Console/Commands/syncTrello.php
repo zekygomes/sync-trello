@@ -40,8 +40,13 @@ class syncTrello extends Command
      */
     public function handle()
     {
+        $this->output->progressStart(10);
 
-        Mail::to("sdfsdfsd@dfsd.com")->send(new TesteSyncTrello(APIService::execute()));
+        APIService::execute($this->output);
+
+        $this->output->progressFinish();
+
+//        Mail::to("sdfsdfsd@dfsd.com")->send(new TesteSyncTrello());
 
     }
 }
