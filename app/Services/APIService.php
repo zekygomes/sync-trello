@@ -34,6 +34,9 @@ class APIService
         $privateBoard = $service->isBoardCreated($boardsId);
         $progress->progressAdvance();
 
+        $listDoneIds = $service->getListDoneId($boardsId);
+        $progress->progressAdvance();
+
         if($privateBoard == 0)
             $privateBoard = $service->createBoard();
         $progress->progressAdvance();
@@ -41,13 +44,13 @@ class APIService
         $membersId = $service->getAllMembersId($boardsId);
         $progress->progressAdvance();
 
-        $data = $service->setAllMembersCards($membersId, $boardsId, $privateBoard);
+        $data = $service->setAllMembersCards($membersId, $boardsId, $privateBoard, $listDoneIds);
         $progress->progressAdvance();
 
         return ['status'=>'ok'];
     }
 
-    public function setAllMembersCards($membersId, $boardsId, $privateBoardId): array
+    public function setAllMembersCards($membersId, $boardsId, $privateBoardId, $listDoneIds): array
     {
         $method = "GET";
         $data = [];
@@ -68,7 +71,7 @@ class APIService
                             "idList" => $item->idList
                         ];
                         $data[] = $dados;
-                        $this->createCard($privateListId, $dados, $boardsId);
+                        $this->createCard($privateListId, $dados, $listDoneIds);
                     }
                 }
         }
@@ -266,12 +269,10 @@ class APIService
         return true;
     }
 
-    private function createCard($idList, $data, $boardsId)
+    private function createCard($idList, $data, $listDoneIds)
     {
         $api_url = "cards";
         $method = "POST";
-
-        $listDoneIds = $this->getListDoneId($boardsId);
 
         if(in_array($data["idList"], $listDoneIds)){
             return 0;
