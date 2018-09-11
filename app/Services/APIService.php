@@ -25,43 +25,55 @@ class APIService
      */
     public static function execute($progress): array
     {
-
-        $progress->progressAdvance();
-
         $service = new APIService();
         $progress->progressAdvance();
+
         $boardsId = $service->getAllBoardsId();
         $progress->progressAdvance();
+
         $privateBoard = $service->isBoardCreated($boardsId);
         $progress->progressAdvance();
+
         if($privateBoard == 0)
             $privateBoard = $service->createBoard();
-
         $progress->progressAdvance();
+
         $membersId = $service->getAllMembersId($boardsId);
         $progress->progressAdvance();
+
         $data = $service->setAllMembersCards($membersId, $boardsId, $privateBoard);
         $progress->progressAdvance();
 
         return ['status'=>'ok'];
     }
 
-    /**
-     * @return boolean
-     */
-    public function createBoard(): string
+    public function setAllMembersCards($membersId, $boardsId, $privateBoardId): array
     {
-        $api_url = "boards/";
-        $method = "POST";
-        $data = [
-            'name' => 'Private',
-            'defaultLists' => false
-        ];
+        $method = "GET";
+        $data = [];
 
-        $response = json_decode($this->call($method, $api_url, $data));
+        foreach ($membersId as $id => $name){
+            $response = $this->getAllCardsFromMembers($id);
 
-        return $response->id;
+            $privateListId = $this->isListCreated($privateBoardId, $name);
 
+            if(!empty($response))
+                foreach ($response as $item){
+                    if($item->idBoard != $privateBoardId){
+                        $dados = [
+                            "name" => $this->getBoardName($boardsId, $item->idBoard)." - ".$item->name,
+                            "desc" => $item->desc,
+                            "dueComplete" => $item->dueComplete,
+                            "idMembers" => $item->idMembers,
+                            "idList" => $item->idList
+                        ];
+                        $data[] = $dados;
+                        $this->createCard($privateListId, $dados, $boardsId);
+                    }
+                }
+        }
+
+        return $data;
     }
 
     protected function call($method = "POST", $api_url = "", $data = null)
@@ -91,6 +103,24 @@ class APIService
 
             return $e->getMessage();
         }
+
+    }
+
+    /**
+     * @return string
+     */
+    public function createBoard(): string
+    {
+        $api_url = "boards/";
+        $method = "POST";
+        $data = [
+            'name' => 'Private',
+            'defaultLists' => false
+        ];
+
+        $response = json_decode($this->call($method, $api_url, $data));
+
+        return $response->id;
 
     }
 
@@ -133,28 +163,34 @@ class APIService
         return $data;
     }
 
-    public function setAllMembersCards($membersId, $boardsId, $privateBoardId): array
+
+
+    /**
+     * @return string
+     */
+    private function getAllCardsFromMembers($id)
     {
         $method = "GET";
         $data = [];
 
-        foreach ($membersId as $id => $name){
-            $response = json_decode($this->call($method, "members/$id/cards"));
+        $response = json_decode($this->call($method, "members/$id/cards"));
 
-            $privateListId = $this->isListCreated($privateBoardId, $name);
+        return $response;
+    }
 
-            if(!empty($response))
+    /**
+     * @return array
+     */
+    private function getListDoneId($boardsId): array
+    {
+        $method = "GET";
+        $data = [];
+
+        foreach ($boardsId as $boardId){
+            $response = json_decode($this->call($method, "boards/{$boardId['id']}/lists"));
             foreach ($response as $item){
-                if($item->idBoard != $privateBoardId){
-                    $dados = [
-                        "name" => $this->getBoardName($boardsId, $item->idBoard)." - ".$item->name,
-                        "desc" => $item->desc,
-                        "dueComplete" => $item->dueComplete,
-                        "idMembers" => $item->idMembers,
-                        "idList" => 0
-                    ];
-                    $data[] = $dados;
-                    $this->createCard($privateListId, $dados);
+                if($item->name == 'Done' ||  $item->name == 'Feito'){
+                    $data[] = "$item->id";
                 }
             }
         }
@@ -230,10 +266,17 @@ class APIService
         return true;
     }
 
-    private function createCard($idList, $data)
+    private function createCard($idList, $data, $boardsId)
     {
         $api_url = "cards";
         $method = "POST";
+
+        $listDoneIds = $this->getListDoneId($boardsId);
+
+        if(in_array($data["idList"], $listDoneIds)){
+            return 0;
+        }
+
         $data["idList"] = $idList;
 
         $response = json_decode($this->call($method, $api_url, $data));
